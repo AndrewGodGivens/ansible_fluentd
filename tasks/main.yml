@@ -1,14 +1,31 @@
 - include_tasks: install.yml
   tags:
     - install
+  when: not (fluentd_in_docker | bool)
+
+- include_tasks: install_docker.yml
+  tags:
+    - install
+  when: fluentd_in_docker | bool
 
 - include_tasks: clean.yml
   tags:
     - clean
   when: fluentd_migrate_to_v5 | bool
 
+- include_tasks: docker_logging.yml
+  tags:
+    - docker-logging
+  when: (fluentd_in_docker | bool) and (fluentd_manage_docker_log_driver | bool)
 
 - include_tasks: configure.yml
   tags:
     - configure
     - logrotate
+  when: not (fluentd_in_docker | bool)
+
+- include_tasks: configure_docker.yml
+  tags:
+    - configure
+    - logrotate
+  when: fluentd_in_docker | bool

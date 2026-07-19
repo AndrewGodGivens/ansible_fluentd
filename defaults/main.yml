@@ -11,6 +11,41 @@ log_path: /var/log/fluent
 
 install_url: https://fluentd.cdn.cncf.io/lts/6/ubuntu/{{ ansible_distribution_release|string }}/pool/contrib/f/fluent-lts-apt-source/fluent-lts-apt-source_2025.9.29-1_all.deb
 
+# Set to true to run Fluentd as a Docker Compose service instead of the
+# native fluent-package install. Everything else (fluentd_config,
+# fluentd_plugins, ssl_directory_path, etc.) is used the same way in both
+# modes.
+fluentd_in_docker: false
+
+# --- Docker Compose deployment (only used when fluentd_in_docker: true) ---
+fluentd_deploy_dir: /opt/fluentd
+fluentd_conf_path: /etc/fluent/fluentd.conf
+fluentd_image: "grafana/fluent-plugin-loki:main"
+fluentd_container_name: fluentd
+fluentd_compose_extra_volumes: []
+fluentd_compose_extra_env: {}
+
+# Collect logs from Swarm services (and any other container) running on
+# this node: Docker's daemon-wide default log-driver is set to fluentd, so
+# Docker itself ships every container's stdout/stderr to Fluentd's
+# forward input below.
+fluentd_manage_docker_log_driver: true
+fluentd_forward_bind: "127.0.0.1"
+fluentd_forward_port: 24224
+fluentd_docker_log_tag: "swarm.{{ '{{' }}.Name{{ '}}' }}"
+fluentd_docker_log_opts:
+  fluentd-address: "{{ fluentd_forward_bind }}:{{ fluentd_forward_port }}"
+  fluentd-async: "true"
+  fluentd-retry-wait: "1s"
+  fluentd-max-retries: "30"
+  tag: "{{ fluentd_docker_log_tag }}"
+
+# Restarting the Docker daemon restarts every container on this node
+# (including all running Swarm tasks). Off by default — apply the change
+# manually with `systemctl restart docker` during a maintenance window,
+# or set this to true to let the role restart it.
+fluentd_docker_restart_allowed: false
+
 fluentd_plugins:
   - fluent-plugin-grafana-loki
   - fluent-plugin-systemd

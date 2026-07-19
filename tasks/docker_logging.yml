@@ -1,0 +1,29 @@
+---
+- name: Fluentd | Check for existing Docker daemon.json
+  stat:
+    path: /etc/docker/daemon.json
+  register: fluentd_daemon_json_stat
+
+- name: Fluentd | Read existing Docker daemon.json
+  slurp:
+    src: /etc/docker/daemon.json
+  register: fluentd_daemon_json_raw
+  when: fluentd_daemon_json_stat.stat.exists
+
+- name: Fluentd | Merge Docker daemon.json with fluentd log-driver settings
+  set_fact:
+    fluentd_merged_daemon_json: >-
+      {{
+        (fluentd_daemon_json_raw.content | b64decode | from_json
+          if fluentd_daemon_json_stat.stat.exists else {})
+        | combine({'log-driver': 'fluentd', 'log-opts': fluentd_docker_log_opts}, recursive=True)
+      }}
+
+- name: Fluentd | Write merged Docker daemon.json
+  copy:
+    content: "{{ fluentd_merged_daemon_json | to_nice_json }}\n"
+    dest: /etc/docker/daemon.json
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart Docker daemon

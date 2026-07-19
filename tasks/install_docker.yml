@@ -1,0 +1,69 @@
+---
+- name: Fluentd | Check for Docker Compose plugin
+  command: docker compose version
+  register: fluentd_compose_check
+  changed_when: false
+  failed_when: false
+
+- name: Fluentd | Install Docker Compose plugin
+  ansible.builtin.apt:
+    name: docker-compose-plugin
+    state: present
+    update_cache: yes
+  when: fluentd_compose_check.rc != 0
+
+- name: Fluentd | Create fluentd deploy directory
+  file:
+    path: "{{ fluentd_deploy_dir }}"
+    state: directory
+    mode: 0755
+
+- name: Fluentd | Create fluentd directory for side files
+  file:
+    path: /var/lib/fluentd
+    mode: 0777
+    state: directory
+
+- name: Fluentd | Create fluentd config directory
+  file:
+    path: "{{ fluentd_conf_path | dirname }}"
+    state: directory
+    mode: 0755
+
+- name: Fluentd | Create tmp dir for fluentd files
+  file:
+    path: "{{ log_path }}/tmp"
+    state: directory
+    mode: 0777
+
+- name: Fluentd | Set permissions for fluentd log directory
+  file:
+    path: "{{ log_path }}"
+    mode: 0777
+    state: directory
+    recurse: true
+
+- name: Fluentd | Check if the directory for ssl exists
+  stat:
+    path: "{{ ssl_directory_path }}/{{ domain_directory }}"
+  register: dir_stat
+
+- name: Fluentd | Find certs in the directory
+  find:
+    paths: "{{ ssl_directory_path }}/{{ domain_directory }}"
+    patterns: "*.pem"
+  when: dir_stat.stat.exists
+  register: cert_files
+
+- name: Fluentd | Set 644 permissions for certs
+  file:
+    path: "{{ item.path }}"
+    mode: '0644'
+  loop: "{{ cert_files.files }}"
+  when: dir_stat.stat.exists
+
+- name: Fluentd | Set 755 permissions for the directory
+  file:
+    path: "{{ ssl_directory_path }}/{{ domain_directory }}"
+    mode: '0755'
+  when: dir_stat.stat.exists

@@ -1,0 +1,32 @@
+# Managed by Ansible
+services:
+  fluentd:
+    image: "{{ fluentd_image }}"
+    container_name: "{{ fluentd_container_name }}"
+    restart: unless-stopped
+    user: root
+    ports:
+      - "{{ fluentd_forward_bind }}:{{ fluentd_forward_port }}:24224"
+      - "{{ fluentd_forward_bind }}:{{ fluentd_forward_port }}:24224/udp"
+    environment:
+      FLUENTD_CONF: fluentd.conf
+{% for key, value in fluentd_compose_extra_env.items() %}
+      {{ key }}: "{{ value }}"
+{% endfor %}
+    volumes:
+      - "{{ fluentd_conf_path }}:/fluentd/etc/fluentd.conf:ro"
+      - "/var/lib/fluentd:/var/lib/fluentd"
+      # identity mounts: keep host paths used in fluentd_config (pos_file,
+      # tail source path, buffer path, certs) valid unchanged inside the container
+      - "{{ log_path }}:{{ log_path }}"
+      - "/var/log:/var/log:ro"
+      - "{{ ssl_directory_path }}:{{ ssl_directory_path }}:ro"
+{% for volume in fluentd_compose_extra_volumes %}
+      - "{{ volume }}"
+{% endfor %}
+{% if fluentd_plugins | length > 0 %}
+    command: >-
+      sh -c "for p in {{ fluentd_plugins | join(' ') }}; do
+      gem list -i \"$$p\" >/dev/null || gem install \"$$p\";
+      done; exec fluentd -c /fluentd/etc/fluentd.conf"
+{% endif %}

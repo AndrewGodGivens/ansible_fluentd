@@ -27,6 +27,50 @@ fluentd_config:
         log_level warn
 ```
 
+#### Running Fluentd in Docker Compose
+
+Set `fluentd_in_docker: true` to deploy Fluentd as a Docker Compose service
+instead of the native `fluent-package` install. `fluentd_config` and
+`fluentd_plugins` keep the exact same meaning and are rendered into the same
+`/etc/fluent/fluentd.conf` either way, so an existing native config keeps
+working unchanged after switching the flag.
+
+The container uses the `grafana/fluent-plugin-loki` image (ships with
+`fluent-plugin-grafana-loki` and `fluent-plugin-systemd` preinstalled); any
+other gems listed in `fluentd_plugins` are installed on top at startup.
+`/var/log`, `{{ log_path }}`, `/var/lib/fluentd` and `ssl_directory_path` are
+bind-mounted at identical paths inside the container, so existing `tail`
+sources, `pos_file` and cert paths in `fluentd_config` need no changes.
+
+```yaml
+fluentd_in_docker: true
+
+# collect logs from Docker Swarm services (and any other container)
+# running on this node — Docker's default log-driver is set to fluentd,
+# so Docker itself ships every container's stdout/stderr to Fluentd's
+# forward input.
+fluentd_manage_docker_log_driver: true      # default
+fluentd_forward_bind: "127.0.0.1"           # default
+fluentd_forward_port: 24224                 # default
+
+# restarting the Docker daemon restarts every container on the node,
+# including running Swarm tasks. Off by default — apply manually with
+# `systemctl restart docker`, or opt in here.
+fluentd_docker_restart_allowed: false        # default
+```
+
+To also receive Swarm container logs, add a `forward` source to
+`fluentd_config` alongside your existing sources:
+
+```yaml
+  - directive: source
+    data:
+      - |
+        @type forward
+          bind 0.0.0.0
+          port 24224
+```
+
 #### Dependencies
 
 None
