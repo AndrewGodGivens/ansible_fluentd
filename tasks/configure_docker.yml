@@ -3,12 +3,29 @@
   template:
     src: fluentd.conf
     dest: "{{ fluentd_conf_path }}"
-  notify:
-    - Check Fluentd Docker Configuration
 
 - name: Fluentd | Ensure Docker Compose file
   template:
     src: docker-compose.yml.j2
     dest: "{{ fluentd_deploy_dir }}/docker-compose.yml"
-  notify:
-    - Check Fluentd Docker Configuration
+
+- name: Fluentd | Validate Docker Compose file
+  command: docker compose config --quiet
+  args:
+    chdir: "{{ fluentd_deploy_dir }}"
+  changed_when: false
+
+# Not notify-based on purpose: a handler only fires when the templates above
+# report changed, so if the stack was ever stopped/removed out-of-band while
+# the rendered files stayed identical, a handler-only apply would silently
+# never start it again. `docker compose up -d` is itself idempotent (no-op
+# when already running with the same config), so it's safe to run every time.
+- name: Fluentd | Ensure Fluentd Docker Compose stack is running
+  command: docker compose up -d --remove-orphans
+  args:
+    chdir: "{{ fluentd_deploy_dir }}"
+  register: fluentd_compose_up
+  changed_when: >-
+    ('Started' in (fluentd_compose_up.stderr | default('')))
+    or ('Created' in (fluentd_compose_up.stderr | default('')))
+    or ('Recreat' in (fluentd_compose_up.stderr | default('')))

@@ -12,26 +12,6 @@
     enabled: true
     state: restarted
 
-- name: Check Fluentd Docker Configuration
-  # Only validates the Compose YAML itself (fast, never runs a container,
-  # can't hang). Actual fluentd.conf correctness (plugins, directive syntax)
-  # shows up in `docker compose logs fluentd` after Apply below — we don't
-  # try to simulate fluentd_image's entrypoint/Bundler setup here anymore,
-  # since guessing at its internals previously caused a hung/failed check.
-  command: docker compose config --quiet
-  args:
-    chdir: "{{ fluentd_deploy_dir }}"
-  register: fluentd_docker_config_check
-  failed_when: fluentd_docker_config_check.rc != 0
-  changed_when: false
-  notify:
-    - Apply Fluentd Docker Compose
-
-- name: Apply Fluentd Docker Compose
-  command: docker compose up -d --remove-orphans
-  args:
-    chdir: "{{ fluentd_deploy_dir }}"
-
 - name: Restart Docker daemon
   service:
     name: docker
