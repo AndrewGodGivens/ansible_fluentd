@@ -25,8 +25,22 @@ services:
       - "{{ volume }}"
 {% endfor %}
 {% if fluentd_plugins | length > 0 %}
+      - "fluentd_vendor_bundle:/fluentd/vendor/bundle"
+    # fluentd_image bundles its plugins (e.g. fluent-plugin-grafana-loki) via
+    # Bundler in an isolated gemset (see its entrypoint.sh: `fluentd ...
+    # --gemfile /fluentd/Gemfile`). Plain `gem install` is invisible to that
+    # isolated gemset, so extra plugins are added to the same Gemfile and
+    # bundle-installed into the same vendor path before starting fluentd.
     command: >-
-      sh -c "for p in {{ fluentd_plugins | join(' ') }}; do
-      gem list -i \"$$p\" >/dev/null || gem install \"$$p\";
-      done; exec fluentd -c /fluentd/etc/fluentd.conf"
+      sh -c "
+      for p in {{ fluentd_plugins | join(' ') }}; do
+      bundle list --gemfile=/fluentd/Gemfile 2>/dev/null | grep -qi \"$$p\" || echo \"gem '$$p'\" >> /fluentd/Gemfile;
+      done;
+      bundle install --gemfile=/fluentd/Gemfile --path=/fluentd/vendor/bundle;
+      exec fluentd -c /fluentd/etc/fluentd.conf -p /fluentd/plugins --gemfile /fluentd/Gemfile"
+{% endif %}
+{% if fluentd_plugins | length > 0 %}
+
+volumes:
+  fluentd_vendor_bundle: {}
 {% endif %}

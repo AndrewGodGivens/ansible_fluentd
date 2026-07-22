@@ -17,7 +17,7 @@
     docker run --rm --entrypoint fluentd
     -v {{ fluentd_conf_path }}:/fluentd/etc/fluentd.conf:ro
     {{ fluentd_image }}
-    --dry-run -c /fluentd/etc/fluentd.conf
+    --dry-run -c /fluentd/etc/fluentd.conf -p /fluentd/plugins --gemfile /fluentd/Gemfile
   register: fluentd_docker_config_check
   failed_when: fluentd_docker_config_check.rc != 0
   changed_when: false
