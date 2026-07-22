@@ -12,9 +12,10 @@ log_path: /var/log/fluent
 install_url: https://fluentd.cdn.cncf.io/lts/6/ubuntu/{{ ansible_distribution_release|string }}/pool/contrib/f/fluent-lts-apt-source/fluent-lts-apt-source_2025.9.29-1_all.deb
 
 # Set to true to run Fluentd as a Docker Compose service instead of the
-# native fluent-package install. Everything else (fluentd_config,
-# fluentd_plugins, ssl_directory_path, etc.) is used the same way in both
-# modes.
+# native fluent-package install. fluentd_config/ssl_directory_path are used
+# the same way in both modes; fluentd_plugins only applies to native mode
+# (see README's "Running Fluentd in Docker Compose" section for extra
+# plugins in Docker mode).
 fluentd_in_docker: false
 
 # --- Docker Compose deployment (only used when fluentd_in_docker: true) ---

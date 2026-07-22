@@ -13,11 +13,16 @@
     state: restarted
 
 - name: Check Fluentd Docker Configuration
+  # Run the image with its own (unmodified) entrypoint.sh instead of calling
+  # fluentd directly: it already knows the right -p/--gemfile flags for its
+  # baked-in Bundler gemset, and overriding it caused bundler to rebuild the
+  # whole dependency tree from scratch (see git history for the incident).
   command: >-
-    docker run --rm --entrypoint fluentd
+    docker run --rm --user root
+    -e FLUENTD_CONF=fluentd.conf
+    -e FLUENTD_OPT=--dry-run
     -v {{ fluentd_conf_path }}:/fluentd/etc/fluentd.conf:ro
     {{ fluentd_image }}
-    --dry-run -c /fluentd/etc/fluentd.conf -p /fluentd/plugins --gemfile /fluentd/Gemfile
   register: fluentd_docker_config_check
   failed_when: fluentd_docker_config_check.rc != 0
   changed_when: false

@@ -30,17 +30,34 @@ fluentd_config:
 #### Running Fluentd in Docker Compose
 
 Set `fluentd_in_docker: true` to deploy Fluentd as a Docker Compose service
-instead of the native `fluent-package` install. `fluentd_config` and
-`fluentd_plugins` keep the exact same meaning and are rendered into the same
-`/etc/fluent/fluentd.conf` either way, so an existing native config keeps
-working unchanged after switching the flag.
+instead of the native `fluent-package` install. `fluentd_config` keeps the
+exact same meaning and is rendered into the same `/etc/fluent/fluentd.conf`
+either way, so an existing native config keeps working unchanged after
+switching the flag.
 
 The container uses the `grafana/fluent-plugin-loki` image (ships with
-`fluent-plugin-grafana-loki` and `fluent-plugin-systemd` preinstalled); any
-other gems listed in `fluentd_plugins` are installed on top at startup.
-`/var/log`, `{{ log_path }}`, `/var/lib/fluentd` and `ssl_directory_path` are
-bind-mounted at identical paths inside the container, so existing `tail`
-sources, `pos_file` and cert paths in `fluentd_config` need no changes.
+`fluent-plugin-grafana-loki` and `fluent-plugin-systemd` preinstalled) and is
+started with its own unmodified `entrypoint.sh` (`FLUENTD_CONF`/`FLUENTD_OPT`
+env vars), so its Bundler-managed gemset is used exactly as the image
+intends. `/var/log`, `{{ log_path }}`, `/var/lib/fluentd` and
+`ssl_directory_path` are bind-mounted at identical paths inside the
+container, so existing `tail` sources, `pos_file` and cert paths in
+`fluentd_config` need no changes.
+
+`fluentd_plugins` (native mode's `fluent-gem install` list) is **not** used
+in Docker mode — installing extra gems into this image at container
+*startup* was tried and reverted: forcing Bundler to a different vendor path
+made it try to rebuild the base fluentd native gems (`cool.io`, `msgpack`,
+`strptime`) from source, and the runtime image has no C toolchain to do
+that. If you need a plugin beyond `fluent-plugin-grafana-loki`/
+`fluent-plugin-systemd`, build your own image at *build* time instead, where
+dev tools are available, and point `fluentd_image` at it:
+
+```dockerfile
+FROM grafana/fluent-plugin-loki:main
+RUN echo "gem 'fluent-plugin-prometheus'" >> /fluentd/Gemfile \
+ && bundle install --gemfile=/fluentd/Gemfile
+```
 
 ```yaml
 fluentd_in_docker: true
