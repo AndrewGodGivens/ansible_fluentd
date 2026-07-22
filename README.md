@@ -37,11 +37,12 @@ switching the flag.
 
 The container uses the `grafana/fluent-plugin-loki` image (ships with
 `fluent-plugin-grafana-loki` and `fluent-plugin-systemd` preinstalled) and is
-started with its own unmodified `entrypoint.sh` (`FLUENTD_CONF`/`FLUENTD_OPT`
-env vars), so its Bundler-managed gemset is used exactly as the image
-intends. `/var/log`, `{{ log_path }}`, `/var/lib/fluentd` and
-`ssl_directory_path` are bind-mounted at identical paths inside the
-container, so existing `tail` sources, `pos_file` and cert paths in
+started with its own unmodified `entrypoint.sh` (only the documented
+`FLUENTD_CONF` env var is set), so its Bundler-managed gemset is used
+exactly as the image intends — no custom command/entrypoint override.
+`/var/log`, `{{ log_path }}`, `/var/lib/fluentd` and `ssl_directory_path`
+are bind-mounted at identical paths inside the container, so existing
+`tail` sources, `pos_file` and cert paths in
 `fluentd_config` need no changes.
 
 `fluentd_plugins` (native mode's `fluent-gem install` list) is **not** used
@@ -58,6 +59,12 @@ FROM grafana/fluent-plugin-loki:main
 RUN echo "gem 'fluent-plugin-prometheus'" >> /fluentd/Gemfile \
  && bundle install --gemfile=/fluentd/Gemfile
 ```
+
+Before applying, the role only runs `docker compose config --quiet` (pure
+YAML validation — it never starts a container, so it can't hang). It does
+**not** simulate fluentd_image's own entrypoint/plugin loading; check
+`docker compose logs fluentd` (or `docker ps`) after a run if `fluentd.conf`
+itself has a mistake.
 
 ```yaml
 fluentd_in_docker: true
