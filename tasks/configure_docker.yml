@@ -9,23 +9,13 @@
     src: docker-compose.yml.j2
     dest: "{{ fluentd_deploy_dir }}/docker-compose.yml"
 
-- name: Fluentd | Validate Docker Compose file
-  command: docker compose config --quiet
-  args:
-    chdir: "{{ fluentd_deploy_dir }}"
-  changed_when: false
-
-# Not notify-based on purpose: a handler only fires when the templates above
-# report changed, so if the stack was ever stopped/removed out-of-band while
-# the rendered files stayed identical, a handler-only apply would silently
-# never start it again. `docker compose up -d` is itself idempotent (no-op
-# when already running with the same config), so it's safe to run every time.
+# community.docker.docker_compose_v2 reconciles the actual running state
+# against the Compose file on every run (idempotent, proper changed
+# detection) - unlike a handler, it doesn't depend on the templates above
+# having reported changed, so a stack stopped/removed out-of-band still
+# gets brought back up.
 - name: Fluentd | Ensure Fluentd Docker Compose stack is running
-  command: docker compose up -d --remove-orphans
-  args:
-    chdir: "{{ fluentd_deploy_dir }}"
-  register: fluentd_compose_up
-  changed_when: >-
-    ('Started' in (fluentd_compose_up.stderr | default('')))
-    or ('Created' in (fluentd_compose_up.stderr | default('')))
-    or ('Recreat' in (fluentd_compose_up.stderr | default('')))
+  community.docker.docker_compose_v2:
+    project_src: "{{ fluentd_deploy_dir }}"
+    state: present
+    remove_orphans: true

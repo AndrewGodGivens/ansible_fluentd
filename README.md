@@ -5,7 +5,10 @@ Role to install and configure fluentd.
 
 #### Requirements
 
-Ansible 2.4
+Ansible 2.4. For `fluentd_in_docker: true`, the `community.docker` collection
+must be installed on the controller: `ansible-galaxy collection install
+community.docker` (already required if you're also using this project's
+`postgres_swarm` role).
 
 #### Role Variables
 
@@ -60,8 +63,9 @@ RUN echo "gem 'fluent-plugin-prometheus'" >> /fluentd/Gemfile \
  && bundle install --gemfile=/fluentd/Gemfile
 ```
 
-Before applying, the role only runs `docker compose config --quiet` (pure
-YAML validation — it never starts a container, so it can't hang). It does
+Applying the stack is a plain, always-run task using
+`community.docker.docker_compose_v2` (idempotent — reconciles the actual
+running state every time, not just when the rendered files change). It does
 **not** simulate fluentd_image's own entrypoint/plugin loading; check
 `docker compose logs fluentd` (or `docker ps`) after a run if `fluentd.conf`
 itself has a mistake.
